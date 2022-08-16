@@ -1,0 +1,96 @@
+plugins {
+    id 'org.springframework.boot' version '2.7.0'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
+}
+
+group = 'com.weber.cs3230'
+version = '1.0.0-SNAPSHOT'
+
+sourceCompatibility = JavaVersion.VERSION_11
+targetCompatibility = JavaVersion.VERSION_11
+
+
+
+repositories {
+    mavenCentral()
+}
+
+// Update and run this to update the gradle version for the project
+wrapper {
+    gradleVersion = '7.2'
+}
+
+configurations {
+    all*.exclude module: 'spring-boot-starter-logging'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    implementation 'com.amazon.alexa:alexa-skills-kit:1.8.1'
+    implementation group: 'org.springframework.boot', name: 'spring-boot-starter-log4j2'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.9.0'
+    runtimeOnly 'org.postgresql:postgresql'
+    //implementation 'com.google.code.gson:gson:2.9.0'
+
+
+}
+
+bootJar {
+    archiveClassifier.set('boot')
+}
+
+jar {
+    archiveClassifier.set('')
+}
+
+task generateAssignmentFile() {
+    dependsOn jar
+    doLast {
+        //go gather all the git commit info every time
+        def stdoutGitCommit = new ByteArrayOutputStream()
+        exec {
+            commandLine "git", "log", "-1", "--format=%h"
+            standardOutput = stdoutGitCommit
+        }
+        def gitCommit = "$stdoutGitCommit".trim()
+
+        def stdoutGitBranch = new ByteArrayOutputStream()
+        exec {
+            commandLine "git", "rev-parse", "--abbrev-ref", "HEAD"
+            standardOutput = stdoutGitBranch
+        }
+        def gitBranch = "$stdoutGitBranch".trim()
+
+        def stdoutGitRemote = new ByteArrayOutputStream()
+        exec {
+            commandLine "git", "config", "--get", "remote.origin.url"
+            standardOutput = stdoutGitRemote
+        }
+        def gitRemote = "$stdoutGitRemote".trim()
+
+        def gitHerokuRemote = ""
+        try {
+            def stdoutGitHerokuRemote = new ByteArrayOutputStream()
+            exec {
+                commandLine "git", "config", "--get", "remote.heroku.url"
+                standardOutput = stdoutGitHerokuRemote
+            }
+            gitHerokuRemote = "$stdoutGitHerokuRemote".trim()
+        } catch(Exception e) {
+            gitHerokuRemote = e.getMessage()
+        }
+
+        println "git info: remote='$gitRemote' herokuRemote=$gitHerokuRemote branch='$gitBranch', commit='$gitCommit'"
+
+        new File(projectDir, "submitToCanvas.asn").text = """
+{
+   "remote":"$gitRemote",
+   "gitHerokuRemote":"$gitHerokuRemote",
+   "branch":"$gitBranch",
+   "commit":"$gitCommit"
+}
+""".trim()
+    }
+}
